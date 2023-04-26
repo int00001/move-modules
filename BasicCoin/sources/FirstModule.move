@@ -67,13 +67,66 @@ module NamedAddr::BasicCoin {
         *balance_ref = balance + value;
     }
 
-    // unit test
-    // takes signer called account with address 0xC0FFEE
-    // #[test(account = @0xC0FFEE)]
-    // fun test_mint_10(account: signer) acquires Coin {
-    //     let addr = 0x1::signer::address_of(&account);
-    //     mint(account, 10);
+    // unit tests
 
-    //     assert!(borrow_global<Coin>(addr).value == 10, 0);
-    // }
+    #[test(account = @0x1)]
+    #[expected_failure]
+    fun mint_non_owner(account: signer) acquires Balance {
+        publish_balance(&account);
+        assert!(signer::address_of(&account) != MODULE_OWNER, 0);
+        mint(&account, @0x1, 10);
+    }
+
+    #[test(account = @NamedAddr)]
+    fun mint_check_balance(account: signer) acquires Balance {
+        let addr = signer::address_of(&account);
+        publish_balance(&account);
+        mint(&account, @NamedAddr, 10);
+        assert!(balance_of(addr) == 10, 0);
+    }
+
+    #[test(account = @0x1)]
+    fun publish_balance_has_zero(account: signer) acquires Balance {
+        let addr = signer::address_of(&account);
+        publish_balance(&account);
+        assert!(balance_of(addr) == 0, 0)
+    }
+
+    #[test(account = @0x1)]
+    #[expected_failure]
+    fun balance_of_dne(account: signer) acquires Balance {
+        let addr = signer::address_of(&account);
+        balance_of(addr);
+    }
+
+    #[test]
+    #[expected_failure]
+    fun withdraw_dne() acquires Balance {
+        Coin { value: _ } = withdraw(@0x1, 0);
+    }
+
+    #[test(account = @0x1)]
+    #[expected_failure(abort_code = EALREADY_HAS_BALANCE)]
+    fun publish_balance_already_exists(account: signer) {
+        publish_balance(&account);
+        publish_balance(&account);
+    }
+
+    #[test(account = @0x1)]
+    #[expected_failure(abort_code = EINSUFFICIENT_BALANCE)]
+    fun withdraw_too_much(account: signer) acquires Balance {
+        let addr = signer::address_of(&account);
+        publish_balance(&account);
+        Coin { value: _ } = withdraw(addr, 10);
+    }
+
+    #[test(account = @NamedAddr)]
+    fun can_withdraw_amount(account: signer) acquires Balance {
+        publish_balance(&account);
+        let amount = 1000;
+        let addr = signer::address_of(&account);
+        mint(&account, addr, amount);
+        let Coin { value } = withdraw(addr, amount);
+        assert!(value == amount, 0)
+    }
 }
